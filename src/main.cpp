@@ -28,8 +28,10 @@ float amountToDispense = 0; // Initialized to 0, will be updated by ESP-NOW
 // ESP-NOW data structure
 typedef struct struct_message
 {
+  char userName[32];
   float amountToDispense;
-
+  char scheduledDate[20];
+  char scheduledTime[20];
 } struct_message;
 
 // Create a struct_message called myData
@@ -148,14 +150,6 @@ void setup()
   Serial.println("Starting...");
   LoadCell.begin();
   loadCellConfiguration();
-
-    WiFi.mode(WIFI_STA);
-  Serial.println("Wi-Fi mode set to STA");
-
-  // Get MAC address
-  String macAddress = WiFi.macAddress();
-  Serial.print("MAC Address: ");
-  Serial.println(macAddress);
 }
 
 void loop()
