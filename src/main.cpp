@@ -3,6 +3,7 @@
 #include "Stepper.h"   // stepper motor
 #include <WiFi.h>
 #include <WebServer.h>
+#include <ArduinoJson.h>
 
 // Loadcell config/constructor
 const int HX711_dout = 32; // mcu > HX711 dout pin
@@ -31,6 +32,8 @@ const char* WIFI_PASSWORD = "Gabby1713";
 
 WebServer server(80);
 
+const char* petID = "Chaewon"; // Predefined petID
+
 void handleReceive() {
   if (server.hasArg("plain")) {
     String body = server.arg("plain");
@@ -39,21 +42,36 @@ void handleReceive() {
     Serial.print("Received data: ");
     Serial.println(body);
 
-    // Parse received data to update amountToDispense
-    int index = body.indexOf("amountToDispense");
-    if (index != -1) {
-      int startIndex = body.indexOf(":", index) + 1;
-      int endIndex = body.indexOf(",", startIndex);
-      if (endIndex == -1) endIndex = body.length();
-      String amountStr = body.substring(startIndex, endIndex);
-      amountToDispense = amountStr.toFloat();
-      Serial.print("Updated amountToDispense: ");
-      Serial.println(amountToDispense);
-      dataReceived = true; // Set the flag to true
+    // Parse received data to JSON
+    StaticJsonDocument<200> jsonDoc;
+    DeserializationError error = deserializeJson(jsonDoc, body);
+
+    if (error) {
+      server.send(400, "application/json", "{\"status\":\"fail\",\"message\":\"Invalid JSON\"}");
+      return;
     }
 
-    // Respond with success message
-    server.send(200, "application/json", "{\"status\":\"success\"}");
+    // Extract petID and amountToDispense
+    const char* receivedPetID = jsonDoc["userName"];
+    amountToDispense = jsonDoc["amountToDispense"];
+
+
+    Serial.print("Received petID: ");
+    Serial.println(receivedPetID);
+    Serial.print("Received amountToDispense: ");
+    Serial.println(amountToDispense);
+ 
+    // dataReceived = true; // Set the flag to true
+    // server.send(200, "application/json", "{\"status\":\"success\"}");
+ 
+    // Check if the received petID matches the predefined petID
+    if (strcmp(receivedPetID, petID) == 0) {
+      dataReceived = true; // Set the flag to true
+      server.send(200, "application/json", "{\"status\":\"success\"}");
+    } else {
+      server.send(403, "application/json", "{\"status\":\"fail\",\"message\":\"kazuka: not me!\"}");
+      return;
+    }
   } else {
     server.send(400, "application/json", "{\"status\":\"fail\",\"message\":\"Invalid request\"}");
   }
@@ -154,7 +172,7 @@ void loop() {
 
   // Check if data has been received from client
   if (dataReceived) {
-    // get smoothed value from the dataset:
+    // DISPENSING LOGIC - get smoothed value from the dataset:
     if (newDataReady) {
       if (millis() > t + serialPrintInterval) {
         float petTrayAmount = LoadCell.getData();
@@ -186,6 +204,7 @@ void loop() {
         }
       }
     }
+    // end of Dispensing logic
   } else {
     // Print "waiting for data" every 5 seconds
     if (millis() - lastPrintTime >= 5000) {
