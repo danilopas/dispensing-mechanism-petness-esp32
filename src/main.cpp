@@ -23,19 +23,21 @@ const int smallStep = 55;                                     // Small step size
 Stepper motor1 = Stepper(stepsPerRevolution, 12, 14, 27, 26); // motor1
 
 // AmountToDispense
-float amountToDispense = 0; // Initialized to 0, will be updated by HTTP request
+float amountToDispense = 0;   // Initialized to 0, will be updated by HTTP request
 boolean dataReceived = false; // Flag to check if data is received
 
 // Definitions for WiFi
-const char* WIFI_SSID = "Tabaranza_WIFI";
-const char* WIFI_PASSWORD = "Gabby1713";
+const char *WIFI_SSID = "Tabaranza_WIFI";
+const char *WIFI_PASSWORD = "Gabby1713";
 
 WebServer server(80);
 
-const char* petID = "Chaewon"; // Predefined petID
+const char *petID = "Chaewon"; // Predefined petID
 
-void handleReceive() {
-  if (server.hasArg("plain")) {
+void handleReceive()
+{
+  if (server.hasArg("plain"))
+  {
     String body = server.arg("plain");
 
     // Print received data to Serial
@@ -46,39 +48,53 @@ void handleReceive() {
     StaticJsonDocument<200> jsonDoc;
     DeserializationError error = deserializeJson(jsonDoc, body);
 
-    if (error) {
+    if (error)
+    {
       server.send(400, "application/json", "{\"status\":\"fail\",\"message\":\"Invalid JSON\"}");
       return;
     }
 
     // Extract petID and amountToDispense
-    const char* receivedPetID = jsonDoc["userName"];
+    const char *receivedPetID = jsonDoc["userName"];
     amountToDispense = jsonDoc["amountToDispense"];
-
 
     Serial.print("Received petID: ");
     Serial.println(receivedPetID);
     Serial.print("Received amountToDispense: ");
     Serial.println(amountToDispense);
- 
+
     // dataReceived = true; // Set the flag to true
     // server.send(200, "application/json", "{\"status\":\"success\"}");
- 
+
     // Check if the received petID matches the predefined petID
-    if (strcmp(receivedPetID, petID) == 0) {
+    if (strcmp(receivedPetID, petID) == 0)
+    {
       dataReceived = true; // Set the flag to true
-      server.send(200, "application/json", "{\"status\":\"success\"}");
-    } else {
+
+      // Prepare the response
+      String response = "{\"status\":\"success\",\"receivedPetID\":\"";
+      response += receivedPetID;
+      response += "\"}";
+
+      server.send(200, "application/json", response.c_str());
+      // server.send(200, "application/json", "{\"status\":\"success\"}");
+    }
+    else
+    {
       server.send(403, "application/json", "{\"status\":\"fail\",\"message\":\"kazuka: not me!\"}");
       return;
     }
-  } else {
+  }
+  else
+  {
     server.send(400, "application/json", "{\"status\":\"fail\",\"message\":\"Invalid request\"}");
   }
 }
 
-void dispenseMotor1A() {
-  for (int i = 0; i < stepsPerRevolution; i += smallStep) {
+void dispenseMotor1A()
+{
+  for (int i = 0; i < stepsPerRevolution; i += smallStep)
+  {
     motor1.step(smallStep); // Smaller steps for better control
     LoadCell.update();      // Update load cell value
     if (LoadCell.getData() >= amountToDispense)
@@ -86,8 +102,10 @@ void dispenseMotor1A() {
   }
 }
 
-void dispenseMotor1B() {
-  for (int i = 0; i < stepsPerRevolution; i += smallStep) {
+void dispenseMotor1B()
+{
+  for (int i = 0; i < stepsPerRevolution; i += smallStep)
+  {
     motor1.step(-smallStep); // Smaller steps for better control
     LoadCell.update();       // Update load cell value
     if (LoadCell.getData() >= amountToDispense)
@@ -95,17 +113,22 @@ void dispenseMotor1B() {
   }
 }
 
-void stopDispenseMotor1() {
+void stopDispenseMotor1()
+{
   digitalWrite(motor1Relay, LOW);
 }
 
-void loadCellConfiguration() {
+void loadCellConfiguration()
+{
   unsigned long stabilizingtime = 2000; // tare precision can be improved by adding a few seconds of stabilizing time
   boolean _tare = true;                 // set this to false if you don't want tare to be performed in the next step
   LoadCell.start(stabilizingtime, _tare);
-  if (LoadCell.getTareTimeoutFlag()) {
+  if (LoadCell.getTareTimeoutFlag())
+  {
     Serial.println("Timeout, check MCU>HX711 wiring and pin designations");
-  } else {
+  }
+  else
+  {
     LoadCell.setCalFactor(calibrationValue); // set calibration factor (float)
     Serial.println("Startup is complete");
   }
@@ -121,14 +144,18 @@ void loadCellConfiguration() {
   Serial.print("HX711 measured settling time ms: ");
   Serial.println(LoadCell.getSettlingTime());
   Serial.println("Note that the settling time may increase significantly if you use delay() in your sketch!");
-  if (LoadCell.getSPS() < 7) {
+  if (LoadCell.getSPS() < 7)
+  {
     Serial.println("!!Sampling rate is lower than specification, check MCU>HX711 wiring and pin designations");
-  } else if (LoadCell.getSPS() > 100) {
+  }
+  else if (LoadCell.getSPS() > 100)
+  {
     Serial.println("!!Sampling rate is higher than specification, check MCU>HX711 wiring and pin designations");
   }
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 
   // Relay Config
@@ -146,7 +173,8 @@ void setup() {
   // Initialize WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     Serial.print(".");
     delay(300);
   }
@@ -160,10 +188,11 @@ void setup() {
   Serial.println("Server started");
 }
 
-void loop() {
+void loop()
+{
   server.handleClient();
   static boolean newDataReady = 0;
-  const int serialPrintInterval = 100; // increase value to slow down serial print activity
+  const int serialPrintInterval = 100;    // increase value to slow down serial print activity
   static unsigned long lastPrintTime = 0; // Track the last print time
 
   // Check if new data is received
@@ -171,18 +200,24 @@ void loop() {
     newDataReady = true;
 
   // Check if data has been received from client
-  if (dataReceived) {
+  if (dataReceived)
+  {
     // DISPENSING LOGIC - get smoothed value from the dataset:
-    if (newDataReady) {
-      if (millis() > t + serialPrintInterval) {
+    if (newDataReady)
+    {
+      if (millis() > t + serialPrintInterval)
+      {
         float petTrayAmount = LoadCell.getData();
-        if (petTrayAmount >= amountToDispense) {
+        if (petTrayAmount >= amountToDispense)
+        {
           stopDispenseMotor1();
           Serial.println(" -- Reached the Threshold, STOP");
           Serial.print("Load_cell output val: ");
           Serial.println(petTrayAmount);
           dataReceived = false;
-        } else if (petTrayAmount < amountToDispense && !dispenseMotor1ACounter) {
+        }
+        else if (petTrayAmount < amountToDispense && !dispenseMotor1ACounter)
+        {
           digitalWrite(motor1Relay, HIGH);
           Serial.println(" Rotating Clockwise --");
           dispenseMotor1A();
@@ -191,7 +226,9 @@ void loop() {
           newDataReady = 0;
           t = millis();
           dispenseMotor1ACounter = true;
-        } else if (petTrayAmount < amountToDispense && dispenseMotor1ACounter) {
+        }
+        else if (petTrayAmount < amountToDispense && dispenseMotor1ACounter)
+        {
           Serial.println("Counter Clockwise --");
           dispenseMotor1B();
           Serial.print("Load_cell output val: ");
@@ -199,15 +236,20 @@ void loop() {
           newDataReady = 0;
           t = millis();
           dispenseMotor1ACounter = false;
-        } else {
+        }
+        else
+        {
           Serial.println("Stepper Motor Not Moving Because the Threshold is Zero");
         }
       }
     }
     // end of Dispensing logic
-  } else {
+  }
+  else
+  {
     // Print "waiting for data" every 5 seconds
-    if (millis() - lastPrintTime >= 5000) {
+    if (millis() - lastPrintTime >= 5000)
+    {
       Serial.println("Waiting for data...");
       lastPrintTime = millis();
     }
