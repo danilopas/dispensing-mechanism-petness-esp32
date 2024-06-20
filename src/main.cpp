@@ -21,7 +21,7 @@ const int platformLoadCell_sck = 33;
 // Calibration values
 float calibrationValue_petTray = 2291.28; // petTray Calibration
 float calibrationValue_platform = 21.68;  // platform Calibration
-// LoadCell objects
+// LoadCell objects+
 HX711 LoadCell_petTray;
 HX711 LoadCell_platform;
 
@@ -36,9 +36,9 @@ int motor1Relay = 25; // Relay for motor1
 // int motor2Relay = 2; // Relay for motor2
 
 // Motor Config/constructor
-const int motorSpeed = 25;
+const int motorSpeed = 20;
 const int stepsPerRevolution = 2048;
-const int smallStep = 65;                                     // Small step size for motor control
+const int smallStep = 60;                                     // Small step size for motor control
 const float tolerance = 0.5;                                  // Allowable error margin in grams
 Stepper motor1 = Stepper(stepsPerRevolution, 12, 14, 27, 26); // motor1
 
@@ -60,8 +60,8 @@ const int smoothingWindow = 10;            // Number of readings to average
 const int consistentReadingsThreshold = 5; // Number of consistent readings before stopping
 
 // Definitions for WiFi
-const char *WIFI_SSID = "WIFIWIFIWIFI";
-const char *WIFI_PASSWORD = "LorJun21";
+const char *WIFI_SSID = "virusX-2.4g";
+const char *WIFI_PASSWORD = "simacmacmagbabayad";
 
 // Definitions for Firebase Database
 const char *FIREBASE_HOST = "https://petness-92c55-default-rtdb.asia-southeast1.firebasedatabase.app/";
@@ -589,3 +589,10 @@ void petWeightStream()
     Serial.println(fbdo1.errorReason());
   }
 }
+
+// void foodConsumption() {
+//   float foodConsumed = initialWeight - LoadCell_petTray.get_units();
+//   Serial.print("Food Consumed: ");
+//   Serial.println(foodConsumed);
+//   return foodConsumed;
+// }
