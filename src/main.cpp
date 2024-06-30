@@ -52,7 +52,8 @@ String scheduleDate = "";             // Initialized to 0, will be updated by HT
 String scheduledTime = "";            // Initialized to 0, will be updated by HTTP request
 const char *clientCageID = "cage_01"; // Predefined cageID
 boolean dataReceived = false;         // Flag to check if data is received
-float initialWeight = 0.0;            // Initialized to 0, will be updated by load cell
+float initialPlatformWeight = 0.0;    // Initialized to 0, will be updated by load cell
+float initialTrayWeight = 0.0;        // Initialized to 0, will be updated by load cell
 
 // Fluctuation handling
 deque<float> weightReadings;
@@ -60,8 +61,8 @@ const int smoothingWindow = 10;            // Number of readings to average
 const int consistentReadingsThreshold = 5; // Number of consistent readings before stopping
 
 // Definitions for WiFi
-const char *WIFI_SSID = "virusX-2.4g";
-const char *WIFI_PASSWORD = "simacmacmagbabayad";
+const char *WIFI_SSID = "WIFIWIFIWIFI";
+const char *WIFI_PASSWORD = "LorJun21";
 
 // Definitions for Firebase Database
 const char *FIREBASE_HOST = "https://petness-92c55-default-rtdb.asia-southeast1.firebasedatabase.app/";
@@ -93,7 +94,7 @@ void dispenseMotor1A();
 void dispenseMotor1B();
 void stopDispenseMotor1();
 // void loadCellConfiguration(HX711 &loadCell, float calibrationValue, const char *loadCellName);
-void recordFeedingDataToFirestore(const String &mode, const String &userName, float amount, const String &scheduleDate, const String &scheduledTime, const String &cageID, float initialWeight);
+void recordFeedingDataToFirestore(const String &mode, const String &userName, float amount, const String &scheduleDate, const String &scheduledTime, const String &cageID, float initialWeight, float foodConsumed);
 String generateRandomString(int length);
 // float calculateFoodConsumption();
 void connectToWifi();
@@ -105,6 +106,7 @@ void setPetWeight();
 void petWeightStream();
 void printLoadCellWeights();
 bool checkConsistentWeight(float targetWeight, float tolerance);
+float calculateFoodConsumption();
 
 void setup()
 {
@@ -169,8 +171,10 @@ void loop()
           Serial.print("Smoothed load cell output val: ");
           Serial.println(smoothedWeight);
           Serial.println("Dispensing Finished");
+          Serial.println("Calculating Food Consumed");
+          float foodConsumed = calculateFoodConsumption();
           Serial.println("Recording Feeding Data to Firestore");
-          recordFeedingDataToFirestore(feedingModeType, userName, amountToDispense, scheduleDate, scheduledTime, cageID, initialWeight);
+          recordFeedingDataToFirestore(feedingModeType, userName, amountToDispense, scheduleDate, scheduledTime, cageID, initialPlatformWeight, foodConsumed);
           Serial.println("Reseting the Data Received Flag");
           dataReceived = false;
         }
@@ -279,10 +283,11 @@ void dispenseMotor1A()
       stopDispenseMotor1();
       Serial.print("Reached threshold during dispenseMotor1A: ");
       Serial.println(smoothedWeight);
-
+      Serial.println("Calculating Food Consumed");
+      float foodConsumed = calculateFoodConsumption();
       // Record feeding data to Firestore
       Serial.println("Recording Feeding Data to Firestore");
-      recordFeedingDataToFirestore(feedingModeType, userName, amountToDispense, scheduleDate, scheduledTime, cageID, initialWeight);
+      recordFeedingDataToFirestore(feedingModeType, userName, amountToDispense, scheduleDate, scheduledTime, cageID, initialPlatformWeight, foodConsumed);
 
       dataReceived = false;
       return;
@@ -311,10 +316,11 @@ void dispenseMotor1B()
       stopDispenseMotor1();
       Serial.print("Reached threshold during dispenseMotor1B: ");
       Serial.println(smoothedWeight);
-
+      Serial.println("Calculating Food Consumed");
+      float foodConsumed = calculateFoodConsumption();
       // Record feeding data to Firestore
       Serial.println("Recording Feeding Data to Firestore");
-      recordFeedingDataToFirestore(feedingModeType, userName, amountToDispense, scheduleDate, scheduledTime, cageID, initialWeight);
+      recordFeedingDataToFirestore(feedingModeType, userName, amountToDispense, scheduleDate, scheduledTime, cageID, initialPlatformWeight, foodConsumed);
 
       dataReceived = false;
       return;
@@ -413,8 +419,10 @@ void handleReceive()
       Serial.println("Receiving Data...");
       Serial.println("Getting Initial Weight...");
       // Get initial weight before dispensing
-      float initialWeightGramsToKG = samplesForGettingWeight() / 1000; // Convert to kilograms
-      initialWeight = roundf(initialWeightGramsToKG * 100) / 100;      // Round to nearest 0.01
+      float initialWeightGramsToKG = samplesForGettingWeight() / 1000;    // Convert to kilograms
+      initialPlatformWeight = roundf(initialWeightGramsToKG * 100) / 100; // Round to nearest 0.01
+      Serial.println("Getting Initial Tray Weight...");
+      initialTrayWeight = LoadCell_petTray.get_units(1);
 
       dataReceived = true; // Set the flag to true
 
@@ -471,7 +479,7 @@ String generateRandomString(int length)
   return randomString;
 }
 
-void recordFeedingDataToFirestore(const String &mode, const String &userName, float amount, const String &scheduleDate, const String &scheduledTime, const String &cageID, float initialWeight)
+void recordFeedingDataToFirestore(const String &mode, const String &userName, float amount, const String &scheduleDate, const String &scheduledTime, const String &cageID, float initialPlatformWeight, float foodConsumed)
 {
   // Debugging: Print the values of userName and scheduleDate
   Serial.print("userName: ");
@@ -493,7 +501,8 @@ void recordFeedingDataToFirestore(const String &mode, const String &userName, fl
   content.set("fields/date/stringValue", scheduleDate); // Corrected the field name
   content.set("fields/time/stringValue", scheduledTime);
   content.set("fields/cageID/stringValue", cageID);
-  content.set("fields/weight/doubleValue", initialWeight);
+  content.set("fields/weight/doubleValue", initialPlatformWeight);
+  content.set("fields/foodConsumed/doubleValue", foodConsumed);
 
   // Debugging: Print the content JSON
   Serial.println("Content JSON to be sent:");
@@ -590,9 +599,9 @@ void petWeightStream()
   }
 }
 
-// void foodConsumption() {
-//   float foodConsumed = initialWeight - LoadCell_petTray.get_units();
-//   Serial.print("Food Consumed: ");
-//   Serial.println(foodConsumed);
-//   return foodConsumed;
-// }
+float calculateFoodConsumption()
+{
+  float petTrayWeight = LoadCell_petTray.get_units(1);
+  float foodConsumed = initialTrayWeight - petTrayWeight;
+  return foodConsumed;
+}
